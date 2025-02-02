@@ -4,9 +4,29 @@ import c3_bftool::lexer;
 import std::collections::list;
 import std::io;
 
+enum Opcode {
+  PRINT,
+  READ,
+
+  MOVP,
+
+  CHD,
+
+  // Conditional jump when non-empty (> 0)
+  JMP,
+  // Conditional jump when empty when empty (== 0)
+  JMPE,
+}
+
+struct Operation {
+  Opcode opcode;
+  long* value;
+}
+
 struct Program {
   char[MEM_SIZE] data;
-  Token[] ops;
+  Token[] tokens;
+  List(<Operation>) ops;
 }
 
 fault ProgramValidationFault {
@@ -14,29 +34,66 @@ fault ProgramValidationFault {
   UNOPENED_LOOP,
 }
 
-// @TODO: This should be a `parse` method, which would parse the code into ops with values (to make jumps easier)
-// and could later be optimized
-fn void! Program.validate(self) {
-  @pool() {
-    List(<usz>) stack;
-    stack.temp_init();
-    foreach (index, op: self.ops) {
-      switch (op.type) {
-        case LOOPS:
-          stack.push(index);
-        case LOOPE:
-          if (stack.len() == 0) return ProgramValidationFault.UNOPENED_LOOP?;
-          stack.pop()!;
-        default:
-          // All other operations are just considered valid.
-      }
-    }
+const long ONE = 1;
+const long MINUS_ONE = -1;
 
-    if (stack.len() > 0) return ProgramValidationFault.UNCLOSED_LOOP?;
-  };
+fn void! Program.parse(&self) {
+  if (!self.ops.allocator) self.ops.new_init();
+  foreach (op: self.ops) {
+    if (op.opcode == JMP || op.opcode == JMPE) free(op.value);
+  }
+  self.ops.clear();
+  foreach (token: self.tokens) {
+    Operation op;
+    switch (token.type) {
+      case PRINT:
+      op.opcode = PRINT;
+      case READ:
+      op.opcode = READ;
+      case INCP:
+      op.opcode = MOVP;
+      op.value = &ONE;
+      case DECP:
+      op.opcode = MOVP;
+      op.value = &MINUS_ONE;
+      case INC:
+      op.opcode = CHD;
+      op.value = &ONE;
+      case DEC:
+      op.opcode = CHD;
+      op.value = &MINUS_ONE;
+      case LOOPS:
+      // Will need backpatching, when LOOPE is found
+      op.opcode = JMPE;
+      case LOOPE:
+      op.opcode = JMP;
+      long index;
+      bool found;
+      foreach_r (long i, search_op: self.ops) {
+        if (search_op.opcode == JMPE && search_op.value == null) {
+          index = i;
+          found = true;
+        }
+      }
+      if (!found) return ProgramValidationFault.UNOPENED_LOOP?;
+      self.ops[index].value = mem::new(long, self.ops.len());
+      op.value = mem::new(long, index);
+      case ERROR:
+      nextcase;
+      case EOF:
+      break;
+      default:
+      unreachable("Invalid token found %s", token.type);
+    }
+    self.ops.push(op);
+  }
+
+  foreach (op: self.ops) {
+    if (op.opcode == JMP && op.value == null) return ProgramValidationFault.UNCLOSED_LOOP?;
+  }
 }
 
-fn usz move_index(usz pos, int dir) {
+fn usz move_index(usz pos, long dir) {
   // Handle underflow
   if (dir < 0 && (pos == 0 || (pos + dir) > pos)) return 0;
   // Handle overflow
@@ -45,52 +102,32 @@ fn usz move_index(usz pos, int dir) {
   return pos + dir;
 }
 
-fn void! Program.evaulate(&self) {
-  self.validate()!;
+fn void! Program.evaluate(&self) {
+  self.parse()!;
 
   usz index, pos;
 
   // @TODO: This should run through an optimizer, at least reducing multiple operations of the same type to a single operation
-  @pool() {
-    List(<usz>) stack;
-    stack.temp_init();
-    bool skipping = false;
-    while (pos < self.ops.len) {
-      Token op = self.ops[pos++];
-
-      if (skipping) {
-        if (op.type == LOOPE) skipping = false;
-        continue;
+  while (pos < self.ops.len()) {
+    Operation op = self.ops[pos++];
+    switch (op.opcode) {
+      case JMPE:
+      if (!self.data[index]) {
+        pos = *op.value;
       }
-      switch (op.type) {
-        case LOOPS:
-          if (self.data[index]) {
-            stack.push(pos - 1);
-          } else {
-            skipping = true;
-          }
-        case LOOPE:
-          usz new_pos = stack.pop()!;
-          if (self.data[index]) {
-            pos = new_pos;
-          }
-        case PRINT:
-          if (self.data[index]) {
-            io::printf("%c", self.data[index]);
-          }
-        case READ:
-        case INCP:
-          index = move_index(index, 1);
-        case DECP:
-          index = move_index(index, -1);
-        case INC:
-          self.data[index]++;
-        case DEC:
-          self.data[index]--;
-        case EOF:
-        default:
+      case JMP:
+      if (self.data[index]) {
+        pos = *op.value;
       }
+      case PRINT:
+      if (self.data[index]) {
+        io::printf("%c", self.data[index]);
+      }
+      case READ:
+      case MOVP:
+      index = move_index(index, *op.value);
+      case CHD:
+      self.data[index]+=(char)*op.value;
     }
-  };
-  io::printn();
+  }
 }
