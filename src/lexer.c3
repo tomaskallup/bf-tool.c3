@@ -9,7 +9,9 @@ struct Lexer {
 }
 
 enum TokenType: char (char token) {
-  ERROR = 0,
+  // This is intentionally first, so the lookup table below defaults
+  // to ERROR, thanks to zero initialization
+  ERROR = 1,
   EOF = 0,
 
   PRINT = '.',

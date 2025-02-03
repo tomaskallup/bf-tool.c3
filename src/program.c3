@@ -3,6 +3,7 @@ module c3_bftool::program(<MEM_SIZE>);
 import c3_bftool::lexer;
 import std::collections::list;
 import std::io;
+import libc;
 
 enum Opcode {
   PRINT,
@@ -43,7 +44,7 @@ fn void! Program.parse(&self) {
     if (op.opcode == JMP || op.opcode == JMPE) free(op.value);
   }
   self.ops.clear();
-  foreach (token: self.tokens) {
+  foreach OUTER: (token: self.tokens) {
     Operation op;
     switch (token.type) {
       case PRINT:
@@ -81,7 +82,7 @@ fn void! Program.parse(&self) {
       case ERROR:
       nextcase;
       case EOF:
-      break;
+      break OUTER;
       default:
       unreachable("Invalid token found %s", token.type);
     }
@@ -107,7 +108,6 @@ fn void! Program.evaluate(&self) {
 
   usz index, pos;
 
-  // @TODO: This should run through an optimizer, at least reducing multiple operations of the same type to a single operation
   while (pos < self.ops.len()) {
     Operation op = self.ops[pos++];
     switch (op.opcode) {
@@ -124,6 +124,9 @@ fn void! Program.evaluate(&self) {
         io::printf("%c", self.data[index]);
       }
       case READ:
+      char! in = io::stdin().read_byte();
+      if (catch in) continue;
+      self.data[index] = in;
       case MOVP:
       index = move_index(index, *op.value);
       case CHD:

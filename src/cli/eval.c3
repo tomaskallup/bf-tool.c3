@@ -50,6 +50,7 @@ fn int run_eval(ArgParse* args) {
 
   io::printn("Output:");
   program.evaluate()!!;
+  io::printn();
 
   return 0;
 }
