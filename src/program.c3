@@ -19,9 +19,14 @@ enum Opcode {
   JMPE,
 }
 
-struct Operation {
+struct Operation (Printable) {
   Opcode opcode;
   long* value;
+}
+
+fn String Operation.to_string(&self, Allocator allocator) @dynamic
+{
+  return string::format("%s: %d", self.opcode, self.value != null ? *self.value : -1, allocator: allocator);
 }
 
 struct Program {
@@ -74,6 +79,7 @@ fn void! Program.parse(&self) {
         if (search_op.opcode == JMPE && search_op.value == null) {
           index = i;
           found = true;
+          break;
         }
       }
       if (!found) return ProgramValidationFault.UNOPENED_LOOP?;
@@ -124,8 +130,7 @@ fn void! Program.evaluate(&self) {
         io::printf("%c", self.data[index]);
       }
       case READ:
-      char! in = io::stdin().read_byte();
-      if (catch in) continue;
+      char in = io::stdin().read_byte() ?? 0;
       self.data[index] = in;
       case MOVP:
       index = move_index(index, *op.value);
