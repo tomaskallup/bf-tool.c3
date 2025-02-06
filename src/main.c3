@@ -1,7 +1,7 @@
-module c3_bftool;
+module bftool;
 
 import std::io;
-import c3_bftool::cli;
+import bftool::cli;
 
 fn int main(String[] args)
 {

@@ -1,8 +1,10 @@
-module c3_bftool::cli;
+module bftool::cli;
 import std::io;
 import std::os::argparse;
 
-fn int! command_handler(ArgParse* args){
+import bftool::config;
+
+fn int! command_handler(ArgParse* args, Config config){
 	if(args.arguments.len == 0){
 		args.print_usage()!!;
 		return 1;
@@ -10,7 +12,7 @@ fn int! command_handler(ArgParse* args){
 
 	switch(args.arguments[0]) {
 		case "eval":
-      return eval::run_eval(args);
+      return eval::run_eval(args, config);
     default:
 			io::printfn("Unknown command");
 			args.print_usage()!!;
@@ -24,13 +26,15 @@ const String EPILOG = `Subcommands:
 To get more information about a subcommand run <subcommand> --help
 `;
 
-fn int! run(String[] args) {
+fn int! run(String[] args) { 
+  Config config;
   ArgParse agp = {
     .description = "Brainf**k tool written in C3",
     .usage = "<subcommand> [cmd-args]",
     .epilog = EPILOG,
     .options = { 
       argparse::help_opt(),
+      {.long_name = "opt-batch-ops", .value = &config.optimisation.batch_ops, .help = "Enable batch-ops optimisation"},
     }, 
     .flags = {
       .stop_at_non_option = true,
@@ -42,7 +46,7 @@ fn int! run(String[] args) {
 		return 1;
 	}
 
-  int result = command_handler(&agp)!;
+  int result = command_handler(&agp, config)!;
 
   return result;
 }

@@ -1,5 +1,7 @@
-[.....] This should never execute
-+>>>[-]<[-]++++++++[->+++++++++<]>.----[--<+++>]<-.+++++++.><.+++.
+[++++++++++++++.....] This should never execute
++++[++>]>[.]< This should never print
+<[-] Reset previous
+++++++++[->+++++++++<]>.----[--<+++>]<-.+++++++..+++.
 This should print hello
 [-][
   This loop should also not execute

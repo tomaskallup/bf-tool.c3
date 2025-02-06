@@ -9,7 +9,7 @@
   "test-sources": [ "test/**" ],
   "output": "build",
   "targets": {
-    "c3_bftool": {
+    "bftool": {
       "type": "executable"
     }
   },

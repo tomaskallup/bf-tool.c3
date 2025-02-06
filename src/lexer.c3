@@ -1,4 +1,4 @@
-module c3_bftool::lexer;
+module bftool::lexer;
 
 import std::io;
 import std::collections::list;

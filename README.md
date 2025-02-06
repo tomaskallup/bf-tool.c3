@@ -19,5 +19,5 @@ $ c3c run -- eval <FILE>
 Or build and execute binary yourself.
 ```
 $ c3c build
-$ ./build/c3_bftool eval <FILE>
+$ ./build/bftool eval <FILE>
 ```

@@ -1,6 +1,7 @@
-module c3_bftool::program(<MEM_SIZE>);
+module bftool::program(<MEM_SIZE>);
 
-import c3_bftool::lexer;
+import bftool::lexer;
+import bftool::config;
 import std::collections::list;
 import std::io;
 import libc;
@@ -12,6 +13,7 @@ enum Opcode {
   MOVP,
 
   CHD,
+  SETD,
 
   // Conditional jump when non-empty (> 0)
   JMP,
@@ -21,18 +23,21 @@ enum Opcode {
 
 struct Operation (Printable) {
   Opcode opcode;
-  long* value;
+  long value;
 }
 
 fn String Operation.to_string(&self, Allocator allocator) @dynamic
 {
-  return string::format("%s: %d", self.opcode, self.value != null ? *self.value : -1, allocator: allocator);
+  return string::format("%s: %d", self.opcode, self.value, allocator: allocator);
 }
 
 struct Program {
   char[MEM_SIZE] data;
   Token[] tokens;
   List(<Operation>) ops;
+  usz index;
+  usz pos;
+  Config config;
 }
 
 fault ProgramValidationFault {
@@ -40,14 +45,8 @@ fault ProgramValidationFault {
   UNOPENED_LOOP,
 }
 
-const long ONE = 1;
-const long MINUS_ONE = -1;
-
 fn void! Program.parse(&self) {
   if (!self.ops.allocator) self.ops.new_init();
-  foreach (op: self.ops) {
-    if (op.opcode == JMP || op.opcode == JMPE) free(op.value);
-  }
   self.ops.clear();
   foreach OUTER: (token: self.tokens) {
     Operation op;
@@ -58,16 +57,16 @@ fn void! Program.parse(&self) {
       op.opcode = READ;
       case INCP:
       op.opcode = MOVP;
-      op.value = &ONE;
+      op.value = 1;
       case DECP:
       op.opcode = MOVP;
-      op.value = &MINUS_ONE;
+      op.value = -1;
       case INC:
       op.opcode = CHD;
-      op.value = &ONE;
+      op.value = 1;
       case DEC:
       op.opcode = CHD;
-      op.value = &MINUS_ONE;
+      op.value = -1;
       case LOOPS:
       // Will need backpatching, when LOOPE is found
       op.opcode = JMPE;
@@ -76,15 +75,15 @@ fn void! Program.parse(&self) {
       long index;
       bool found;
       foreach_r (long i, search_op: self.ops) {
-        if (search_op.opcode == JMPE && search_op.value == null) {
+        if (search_op.opcode == JMPE && !search_op.value) {
           index = i;
           found = true;
           break;
         }
       }
       if (!found) return ProgramValidationFault.UNOPENED_LOOP?;
-      self.ops[index].value = mem::new(long, self.ops.len());
-      op.value = mem::new(long, index);
+      self.ops[index].value = self.ops.len();
+      op.value = index;
       case ERROR:
       nextcase;
       case EOF:
@@ -92,50 +91,73 @@ fn void! Program.parse(&self) {
       default:
       unreachable("Invalid token found %s", token.type);
     }
+
+    if (self.config.optimisation.batch_ops) {
+      if (self.ops.len() > 0) {
+        Operation* prev_op = self.ops.get_ref(self.ops.len() - 1);
+        if (prev_op.opcode == op.opcode) {
+          switch {
+            case op.opcode == MOVP: nextcase;
+            case op.opcode == CHD:
+              prev_op.value += op.value;
+              continue;
+          }
+        }
+      }
+    }
+
     self.ops.push(op);
   }
 
-  foreach (op: self.ops) {
-    if (op.opcode == JMP && op.value == null) return ProgramValidationFault.UNCLOSED_LOOP?;
+  bool can_jump_to_zero;
+  foreach (index, op: self.ops) {
+    if (op.opcode == JMPE && !op.value) return ProgramValidationFault.UNCLOSED_LOOP?;
+    if (index == 0 && op.opcode == JMPE) can_jump_to_zero = true;
+    if (op.opcode == JMP && !op.value && !can_jump_to_zero) return ProgramValidationFault.UNOPENED_LOOP?;
   }
 }
 
-fn usz move_index(usz pos, long dir) {
+fn usz Program.move_index(&self, long dir) {
   // Handle underflow
-  if (dir < 0 && (pos == 0 || (pos + dir) > pos)) return 0;
-  // Handle overflow
-  if (dir > 0 && (pos == MEM_SIZE - 1 || (MEM_SIZE - pos) <= dir)) return MEM_SIZE - 1;
+  if (dir < 0 && (self.index == 0 || (self.index + dir) > self.index)) {
+    self.index = 0;
+  } else if (dir > 0 && (self.index == MEM_SIZE - 1 || (MEM_SIZE - self.index) <= dir)) {
+    // Handle overflow
+    self.index = MEM_SIZE - 1;
+  } else {
+    self.index = self.index + dir;
+  }
 
-  return pos + dir;
+  return self.index;
 }
 
 fn void! Program.evaluate(&self) {
   self.parse()!;
 
-  usz index, pos;
-
-  while (pos < self.ops.len()) {
-    Operation op = self.ops[pos++];
+  while (self.pos < self.ops.len()) {
+    Operation op = self.ops[self.pos++];
     switch (op.opcode) {
       case JMPE:
-      if (!self.data[index]) {
-        pos = *op.value;
+      if (!self.data[self.index]) {
+        self.pos = op.value;
       }
       case JMP:
-      if (self.data[index]) {
-        pos = *op.value;
+      if (self.data[self.index]) {
+        self.pos = op.value;
       }
       case PRINT:
-      if (self.data[index]) {
-        io::printf("%c", self.data[index]);
+      if (self.data[self.index]) {
+        io::printf("%c", self.data[self.index]);
       }
       case READ:
       char in = io::stdin().read_byte() ?? 0;
-      self.data[index] = in;
+      self.data[self.index] = in;
       case MOVP:
-      index = move_index(index, *op.value);
+      self.move_index(op.value);
       case CHD:
-      self.data[index]+=(char)*op.value;
+      self.data[self.index]+=(char)op.value;
+      case SETD:
+      self.data[self.index]=(char)op.value;
     }
   }
 }

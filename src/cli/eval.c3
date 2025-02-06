@@ -1,13 +1,14 @@
-module c3_bftool::cli::eval;
+module bftool::cli::eval;
 
 import std::io;
 import std::os::argparse;
-import c3_bftool::lexer;
-import c3_bftool::program;
+import bftool::lexer;
+import bftool::program;
+import bftool::config;
 
 const MEM_SIZE = 100;
 
-fn int run_eval(ArgParse* args) {
+fn int run_eval(ArgParse* args, Config config) {
   ArgParse agp = {
     .program_name = args.program_name,
     .description = "Evaluate a Brainf**k file",
@@ -46,6 +47,7 @@ fn int run_eval(ArgParse* args) {
 
   Program(<MEM_SIZE>) program = {
     .tokens = tokens,
+    .config = config,
   };
 
   io::printn("Output:");
