@@ -8,16 +8,15 @@ Alias for `--batch-ops --zero-loop`.
 
 ## Features
 
-### --batch-ops (partial)
+### --batch-ops
 Simplest optimisation, which simply converts subsequent operations into one.
 So `+++` => `{.opcode = CHD, .value = 3}` etc.
 So `<<<` => `{.opcode = MOVP, .value = -3}` etc.
-
-It will also remove redundant ops so `<>`, `+-+-` and so on would get optimised out. (unimplemented)
+However `+++---` will result in `[{.opcode = CHD, .value = 3},{.opcode = CHD, .value = -3}]`, since there is no under/overflow, if the call has value of `255`, after these operations it will result in `252`, so these cells cannot be optimised out by this simple check.
 
 ### --zero-loop (unimplemented)
 Convert zeroing loops into single op.
-So `[-]` => `{.opcode = CHD, .value = 0}`
+So `[-]` => `{.opcode = SETD, .value = 0}`
 
 ### --remove-dead (unimplemented)
 Removes dead code, like comment loops.

@@ -4,6 +4,7 @@ import bftool::lexer;
 import bftool::config;
 import std::collections::list;
 import std::io;
+import std::math;
 import libc;
 
 enum Opcode {
@@ -99,8 +100,11 @@ fn void! Program.parse(&self) {
           switch {
             case op.opcode == MOVP: nextcase;
             case op.opcode == CHD:
-              prev_op.value += op.value;
-              continue;
+              // Combine ops with same direction, due to sideeffects, we do not want to combine `-` and `+` into one op
+              if (math::sign(prev_op.value) == math::sign(op.value)) {
+                prev_op.value += op.value;
+                continue;
+              }
           }
         }
       }
@@ -131,8 +135,19 @@ fn usz Program.move_index(&self, long dir) {
   return self.index;
 }
 
+fn void Program.print(self) {
+  io::printn("Program start");
+  foreach (index, op: self.ops) {
+    if (index > 0) io::print(", ");
+    io::print(op);
+  }
+  io::printn("Program end");
+}
+
 fn void! Program.evaluate(&self) {
   self.parse()!;
+
+  self.print();
 
   while (self.pos < self.ops.len()) {
     Operation op = self.ops[self.pos++];

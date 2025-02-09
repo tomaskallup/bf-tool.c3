@@ -26,6 +26,17 @@ const String EPILOG = `Subcommands:
 To get more information about a subcommand run <subcommand> --help
 `;
 
+fn void! handle_optimisation_option(ArgOpt* opt, String value) {
+  Config* config = anycast(opt.value, Config)!;
+  ushort level = value.to_ushort()!;
+
+  config.optimisation.level = level;
+
+  if (level > 0) {
+    config.optimisation.batch_ops = true;
+  }
+}
+
 fn int! run(String[] args) { 
   Config config;
   ArgParse agp = {
@@ -35,6 +46,7 @@ fn int! run(String[] args) {
     .options = { 
       argparse::help_opt(),
       {.long_name = "opt-batch-ops", .value = &config.optimisation.batch_ops, .help = "Enable batch-ops optimisation"},
+      {.short_name = 'O', .callback = &handle_optimisation_option, .value = &config},
     }, 
     .flags = {
       .stop_at_non_option = true,
