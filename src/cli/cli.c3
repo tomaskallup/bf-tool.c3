@@ -13,6 +13,8 @@ fn int! command_handler(ArgParse* args, Config config){
 	switch(args.arguments[0]) {
 		case "eval":
       return eval::run_eval(args, config);
+    case "compile":
+      return compile::run_compile(args, config);
     default:
 			io::printfn("Unknown command");
 			args.print_usage()!!;
