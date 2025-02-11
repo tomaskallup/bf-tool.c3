@@ -1,6 +1,7 @@
 module bftool::compiler(<MEM_SIZE>);
 
 import std::io;
+import std::math;
 import bftool::program;
 
 fn void! compile_to_c(Program(<MEM_SIZE>) program, File* out_file) {
@@ -28,9 +29,9 @@ fn void! compile_to_c(Program(<MEM_SIZE>) program, File* out_file) {
         case READ:
           io::fprintfn(out_file, "%sdata[idx] = getchar();", indent)!;
         case MOVP:
-          io::fprintfn(out_file, "%sidx+=%d;", indent, op.value)!;
+          io::fprintfn(out_file, "%sidx%c=%d;", indent, op.value < 0 ? '-' : '+', math::abs(op.value))!;
         case CHD:
-          io::fprintfn(out_file, "%sdata[idx]+=%d;", indent, op.value)!;
+          io::fprintfn(out_file, "%sdata[idx]%c=%d;", indent, op.value < 0 ? '-' : '+', math::abs(op.value))!;
         case SETD:
           io::fprintfn(out_file, "%sdata[idx]=%d;", indent, op.value)!;
       }
