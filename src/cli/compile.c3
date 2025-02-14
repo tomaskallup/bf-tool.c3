@@ -7,7 +7,7 @@ import bftool::program;
 import bftool::config;
 import bftool::compiler;
 
-const MEM_SIZE = 100;
+const MEM_SIZE = 30_000;
 
 fn int run_compile(ArgParse* args, Config config) {
   String out_file_path;

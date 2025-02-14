@@ -6,7 +6,7 @@ import bftool::lexer;
 import bftool::program;
 import bftool::config;
 
-const MEM_SIZE = 100;
+const MEM_SIZE = 30_000;
 
 fn int run_eval(ArgParse* args, Config config) {
   ArgParse agp = {

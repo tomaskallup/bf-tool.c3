@@ -46,6 +46,11 @@ fault ProgramValidationFault {
   UNOPENED_LOOP,
 }
 
+fault ProgramExecutionFault {
+  MEMORY_OVERFLOW,
+  MEMORY_UNDERFLOW,
+}
+
 fn void! Program.parse(&self) {
   if (!self.ops.allocator) self.ops.new_init();
   self.ops.clear();
@@ -83,8 +88,8 @@ fn void! Program.parse(&self) {
         }
       }
       if (!found) return ProgramValidationFault.UNOPENED_LOOP?;
-      self.ops[index].value = self.ops.len();
-      op.value = index;
+      self.ops[index].value = self.ops.len() + 1;
+      op.value = index + 1;
       case ERROR:
       nextcase;
       case EOF:
@@ -121,16 +126,14 @@ fn void! Program.parse(&self) {
   }
 }
 
-fn usz Program.move_index(&self, long dir) {
-  // Handle underflow
-  if (dir < 0 && (self.index == 0 || (self.index + dir) > self.index)) {
-    self.index = 0;
-  } else if (dir > 0 && (self.index == MEM_SIZE - 1 || (MEM_SIZE - self.index) <= dir)) {
-    // Handle overflow
-    self.index = MEM_SIZE - 1;
-  } else {
-    self.index = self.index + dir;
-  }
+fn usz! Program.move_index(&self, long dir) {
+  long new_index = self.index + dir;
+
+  if (new_index >= MEM_SIZE) return ProgramExecutionFault.MEMORY_OVERFLOW?;
+
+  if (new_index < 0) return ProgramExecutionFault.MEMORY_UNDERFLOW?;
+
+  self.index = new_index;
 
   return self.index;
 }
@@ -138,8 +141,7 @@ fn usz Program.move_index(&self, long dir) {
 fn void Program.print(self) {
   io::printn("Program start");
   foreach (index, op: self.ops) {
-    if (index > 0) io::print(", ");
-    io::print(op);
+    io::printfn("%d, %s", index, op);
   }
   io::printn("Program end");
 }
@@ -163,12 +165,13 @@ fn void! Program.evaluate(&self) {
       case PRINT:
       if (self.data[self.index]) {
         io::printf("%c", self.data[self.index]);
+        io::stdout().flush()!;
       }
       case READ:
       char in = io::stdin().read_byte() ?? 0;
       self.data[self.index] = in;
       case MOVP:
-      self.move_index(op.value);
+      self.move_index(op.value)!;
       case CHD:
       self.data[self.index]+=(char)op.value;
       case SETD:
