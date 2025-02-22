@@ -119,11 +119,9 @@ fn void! Program.parse(&self) {
           switch {
             case op.opcode == MOVP: nextcase;
             case op.opcode == CHD:
-              // Combine ops with same direction, due to sideeffects, we do not want to combine `-` and `+` into one op
-              if (math::sign(prev_op.value) == math::sign(op.value)) {
-                prev_op.value += op.value;
-                continue;
-              }
+              prev_op.value += op.value;
+              if (!prev_op.value) self.ops.remove_at(self.ops.len() - 1);
+              continue;
           }
         }
       }
