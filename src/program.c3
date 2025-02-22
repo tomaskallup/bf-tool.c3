@@ -1,3 +1,17 @@
+module std::collections::list(<Type>);
+import std::io;
+<*
+ @require index + len <= self.size `Removed range out of bounds`
+ @require len > 0 `Range should span atleast one element`
+*>
+fn void List.remove_range(&self, usz index, usz len)
+{
+	usz old_size = self.size;
+	self.set_size(self.size - len);
+  if (index + len == old_size) return;
+	self.entries[index .. self.size - len + 1] = self.entries[index + len .. old_size - 1];
+}
+
 module bftool::program(<MEM_SIZE>);
 
 import bftool::lexer;
@@ -126,6 +140,40 @@ fn void! Program.parse(&self) {
   }
 }
 
+fn void Program.optimise(&self) {
+  @pool() {
+    if (self.config.optimisation.zero_loop) {
+      List(<usz>) zero_loops;
+      zero_loops.temp_init();
+      usz zero_loop_index = 0;
+      foreach (index, op: self.ops) {
+        switch (zero_loop_index) {
+          case 0:
+          if (op.opcode == JMPE) zero_loop_index++;
+          case 1:
+          if (op.opcode == CHD && op.value == -1) { zero_loop_index++; }
+            else { zero_loop_index = 0; }
+          case 2:
+          if (op.opcode == JMP && op.value == index - 1) zero_loops.push(index - 2);
+          zero_loop_index = 0;
+        }
+      }
+
+      if (zero_loops.len()) {
+        foreach_r (loop_index: zero_loops) {
+          self.ops.remove_range(loop_index + 1, 2);
+          self.ops[loop_index] = {.opcode = SETD, .value = 0};
+
+          // Fix jumps
+          foreach (&op: self.ops) {
+            if ((op.opcode == JMPE || op.opcode == JMP) && op.value > loop_index) op.value -= 2;
+          }
+        }
+      }
+    }
+  };
+}
+
 fn usz! Program.move_index(&self, long dir) {
   long new_index = self.index + dir;
 
@@ -148,6 +196,7 @@ fn void Program.print(self) {
 
 fn void! Program.evaluate(&self) {
   self.parse()!;
+  self.optimise();
 
   self.print();
 

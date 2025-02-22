@@ -5,25 +5,25 @@ import std::os::argparse;
 import bftool::config;
 
 fn int! command_handler(ArgParse* args, Config config){
-	if(args.arguments.len == 0){
-		args.print_usage()!!;
-		return 1;
-	}
+  if(args.arguments.len == 0){
+    args.print_usage()!!;
+    return 1;
+  }
 
-	switch(args.arguments[0]) {
-		case "eval":
-      return eval::run_eval(args, config);
+  switch(args.arguments[0]) {
+    case "eval":
+    return eval::run_eval(args, config);
     case "compile":
-      return compile::run_compile(args, config);
+    return compile::run_compile(args, config);
     default:
-			io::printfn("Unknown command");
-			args.print_usage()!!;
-			return 1;
-	}
+    io::printfn("Unknown command");
+    args.print_usage()!!;
+    return 1;
+  }
 }
 
 const String EPILOG = `Subcommands:
- - eval
+- eval
 
 To get more information about a subcommand run <subcommand> --help
 `;
@@ -36,6 +36,7 @@ fn void! handle_optimisation_option(ArgOpt* opt, String value) {
 
   if (level > 0) {
     config.optimisation.batch_ops = true;
+    config.optimisation.zero_loop = true;
   }
 }
 
@@ -48,6 +49,7 @@ fn int! run(String[] args) {
     .options = { 
       argparse::help_opt(),
       {.long_name = "opt-batch-ops", .value = &config.optimisation.batch_ops, .help = "Enable batch-ops optimisation"},
+      {.long_name = "opt-zero-loop", .value = &config.optimisation.zero_loop, .help = "Enable zero-loop optimisation"},
       {.short_name = 'O', .callback = &handle_optimisation_option, .value = &config},
     }, 
     .flags = {
@@ -55,10 +57,10 @@ fn int! run(String[] args) {
     },
   };
 
-	if(catch err = agp.parse(args)){
-		agp.print_usage()!!;
-		return 1;
-	}
+  if(catch err = agp.parse(args)){
+    agp.print_usage()!!;
+    return 1;
+  }
 
   int result = command_handler(&agp, config)!;
 

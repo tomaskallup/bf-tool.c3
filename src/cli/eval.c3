@@ -18,16 +18,16 @@ fn int run_eval(ArgParse* args, Config config) {
     }, 
   };
 
-	if(catch err = agp.parse(args.arguments)){
-		agp.print_usage()!!;
-		return 1;
-	}
-  
-	if(agp.arguments.len == 0){
+  if(catch err = agp.parse(args.arguments)){
+    agp.print_usage()!!;
+    return 1;
+  }
+
+  if(agp.arguments.len == 0){
     io::printn("You must provide a path to the file to evaluate.");
-		agp.print_usage()!!;
-		return 1;
-	}
+    agp.print_usage()!!;
+    return 1;
+  }
 
   String path = agp.arguments[0];
   char[]! data = file::load_temp(path);

@@ -5,7 +5,10 @@ import std::math;
 import bftool::program;
 
 fn void! compile_to_c(Program(<MEM_SIZE>) program, File* out_file) {
-  if (!program.ops.allocator) program.parse()!;
+  if (!program.ops.allocator) {
+    program.parse()!;
+    program.optimise();
+  }
 
   io::fprintn(out_file, "#include <stdio.h>\n")!;
   io::fprintfn(out_file, "unsigned char data[%d] = {0};", MEM_SIZE)!;
